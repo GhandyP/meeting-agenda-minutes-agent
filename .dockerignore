@@ -1,0 +1,9 @@
+.git
+.gitignore
+.atl
+.codegraph
+.github
+bin
+out
+*.test
+Makefile
