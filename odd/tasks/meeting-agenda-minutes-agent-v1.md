@@ -185,3 +185,37 @@ func LoadCases(dir string) ([]Case, error) // *.json in dir, filename order
 ```
 
 L13 — session evidence (2026-10-14): `gh repo view GhandyP/meeting-agenda-minutes-agent` reports `PUBLIC`, default branch `main`; the local `main` was one commit ahead of `origin/main` with `internal/` untracked, so T3 existed on disk but uncommitted. `go build ./...`, `go vet ./...` and `go test ./... -count=1` reported `ok internal/meeting`; `gofmt -l` flagged `internal/meeting/validate_test.go`, which was formatted before the T3 commit `4aae188`. Local Pi tool state (`.codegraph/`) was added to `.gitignore` so the public repository carries no machine-local artifacts. `GOOGLE_API_KEY` is absent, so L11 stands; T2 (`4d33476`) and T3 (`4aae188`) were pushed to `origin/main`.
+
+L14 — seam freeze for T7/T8 (2026-10-14), binding once T5 and T6 land. T7 owns the HTTP surface and never reimplements validation, decoding or the approval gate; it calls `agent.Generator.Generate`, `meeting.Validate` and `approval.Gate`. T8 owns process wiring only.
+
+```go
+// internal/server (T7)
+package server
+
+type Config struct {
+	Generator agent.Generator
+	Gate      approval.Gate
+	OutDir    string       // dry-run artifact directory
+	Logger    *slog.Logger // optional; defaults to a discard logger
+}
+
+type Server struct{ /* unexported */ }
+
+func New(cfg Config) (*Server, error)
+func (s *Server) Handler() http.Handler // every route below, plus the embedded UI
+```
+
+Routes: `POST /api/v1/plans` (body is `meeting.MeetingPlanInput`) generates, validates and proposes; `GET /api/v1/proposals/{id}`; `POST /api/v1/proposals/{id}/approve` and `.../reject`; `POST /api/v1/proposals/{id}/artifacts` writes the dry-run artifacts; `GET /api/v1/proposals/{id}/events` streams generation progress as SSE; `GET /` serves the embedded UI from `web/` via `go:embed`.
+
+Required HTTP behavior, each point covered by a `httptest` case with a fake generator (no ADK, no network, no API key):
+- `POST /api/v1/plans` with a payload whose `meeting.Validate` report has errors answers `422` with the report and creates no proposal and no file.
+- A valid payload answers `200` with the proposal and the report; the proposal is retrievable at `GET /api/v1/proposals/{id}`.
+- `POST .../approve` with a body that omits the confirmation flag while the report carries warnings answers `409` and leaves the proposal pending; with the flag it answers `200` and the proposal is approved.
+- `POST .../artifacts` before approval answers `409` and writes no file; after approval it writes the artifacts and answers `200` with the written paths and `dryRun: true`.
+- An unknown proposal id answers `404` on every proposal route. Every 4xx body is JSON with a stable `code` and `detail` field.
+- `GET .../events` answers `text/event-stream`, emits at least one `data:` event and terminates; it must not be required for the generate path to work.
+- No route can create a calendar invite or publish minutes: the only write path is `.../artifacts`, and only for an approved proposal.
+
+T8 command contract (`main.go`): `serve` and `run` subcommands. `serve -addr -out` starts the HTTP server; `run -input -mode -duration -out` is headless: it reads a `meeting.MeetingPlanInput` JSON file, generates, validates, prints the report as JSON to stdout and stops at the proposal, printing its id and stating that the dry-run artifacts require the approval step. `-dry-run` defaults to true and `-dry-run=false` is refused with a clear error and no side effect, because v1 never leaves dry run. Exit codes: 0 success, 1 operational error, 2 usage error, 3 the report has errors. Missing `GOOGLE_API_KEY` is an operational error with a message naming the variable; `-h`/`--help` documents both subcommands and every flag.
+
+L15 — routing decision (2026-10-14): T4, T5 and T6 were delegated to three `gentle-ai-worker` tasks in one batch on disjoint edit surfaces (`testdata/**` + `internal/meeting/fixtures*`; `internal/approval/**`, `internal/calendar/**`, `internal/minutes/**`; `internal/agent/**`), with L12 as the binding seam and an explicit ban on `go mod tidy`, on full-module builds (other packages are mid-flight), and on git write commands. T9/T10 land only after T8, so the public `main` never carries a CI or Docker job that references a binary that does not exist yet.
