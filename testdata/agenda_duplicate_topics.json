@@ -1,0 +1,22 @@
+{
+  "name": "agenda_duplicate_topics",
+  "spec": "S4, S8",
+  "input": {
+    "meetingId": "release-planning-2026-10-20",
+    "mode": "agenda",
+    "title": "Release planning",
+    "durationMinutes": 60,
+    "goals": ["Review scope", "Assign follow-ups"]
+  },
+  "output": {
+    "mode": "agenda",
+    "title": "Release planning",
+    "topics": [
+      {"title": "Review scope", "owner": "Ana", "minutes": 20, "goalIndex": 0},
+      {"title": "Review scope", "owner": "Bruno", "minutes": 20, "goalIndex": 1}
+    ]
+  },
+  "wantProblemCodes": ["duplicate_topic"],
+  "wantTopicMinutes": 40,
+  "wantHasErrors": true
+}

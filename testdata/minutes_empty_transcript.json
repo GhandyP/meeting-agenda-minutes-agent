@@ -1,0 +1,17 @@
+{
+  "name": "minutes_empty_transcript",
+  "spec": "S4",
+  "input": {
+    "meetingId": "weekly-review-2026-10-20",
+    "mode": "minutes",
+    "title": "Weekly review",
+    "transcript": []
+  },
+  "output": {
+    "mode": "minutes",
+    "title": "Weekly review"
+  },
+  "wantProblemCodes": ["empty_transcript", "minutes_no_items"],
+  "wantTopicMinutes": 0,
+  "wantHasErrors": true
+}

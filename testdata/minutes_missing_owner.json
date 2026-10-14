@@ -1,0 +1,22 @@
+{
+  "name": "minutes_missing_owner",
+  "spec": "S4, S8",
+  "input": {
+    "meetingId": "weekly-review-2026-10-20",
+    "mode": "minutes",
+    "title": "Weekly review",
+    "transcript": [
+      {"id": "s1", "speaker": "Ana", "timestamp": "00:02:15", "text": "We need to send the revised forecast."}
+    ]
+  },
+  "output": {
+    "mode": "minutes",
+    "title": "Weekly review",
+    "actions": [
+      {"task": "Send the revised forecast", "owner": "unknown", "dueDate": "2026-10-23", "evidence": ["s1"]}
+    ]
+  },
+  "wantProblemCodes": ["owner_needs_confirmation"],
+  "wantTopicMinutes": 0,
+  "wantHasErrors": false
+}

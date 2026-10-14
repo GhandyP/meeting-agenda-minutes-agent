@@ -1,0 +1,22 @@
+{
+  "name": "agenda_duration_overflow",
+  "spec": "S4",
+  "input": {
+    "meetingId": "release-planning-2026-10-20",
+    "mode": "agenda",
+    "title": "Release planning",
+    "durationMinutes": 45,
+    "goals": ["Review scope", "Assign follow-ups"]
+  },
+  "output": {
+    "mode": "agenda",
+    "title": "Release planning",
+    "topics": [
+      {"title": "Review scope", "owner": "Ana", "minutes": 30, "goalIndex": 0},
+      {"title": "Assign follow-ups", "owner": "Bruno", "minutes": 20, "goalIndex": 1}
+    ]
+  },
+  "wantProblemCodes": ["duration_overflow"],
+  "wantTopicMinutes": 50,
+  "wantHasErrors": true
+}

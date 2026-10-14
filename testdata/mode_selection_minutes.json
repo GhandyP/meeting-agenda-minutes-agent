@@ -1,0 +1,31 @@
+{
+  "name": "mode_selection_minutes",
+  "spec": "S4, S7",
+  "input": {
+    "meetingId": "team-sync-2026-10-20",
+    "mode": "minutes",
+    "title": "Team sync",
+    "participants": ["Ana", "Bruno"],
+    "transcript": [
+      {"id": "s1", "speaker": "Ana", "timestamp": "00:00:10", "text": "We will ship the release on Friday."},
+      {"id": "s2", "speaker": "Bruno", "timestamp": "00:01:20", "text": "I will update the delivery checklist."},
+      {"id": "s3", "speaker": "Ana", "timestamp": "00:02:30", "text": "Do we need another review before release?"}
+    ]
+  },
+  "output": {
+    "mode": "minutes",
+    "title": "Team sync",
+    "decisions": [
+      {"statement": "Ship the release on Friday.", "evidence": ["s1"]}
+    ],
+    "actions": [
+      {"task": "Update the delivery checklist", "owner": "Bruno", "dueDate": "2026-10-22", "evidence": ["s2"]}
+    ],
+    "openQuestions": [
+      {"question": "Is another review needed before release?", "evidence": ["s3"]}
+    ]
+  },
+  "wantProblemCodes": [],
+  "wantTopicMinutes": 0,
+  "wantHasErrors": false
+}

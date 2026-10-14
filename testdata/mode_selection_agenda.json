@@ -1,0 +1,23 @@
+{
+  "name": "mode_selection_agenda",
+  "spec": "S4, S7",
+  "input": {
+    "meetingId": "team-sync-2026-10-20",
+    "mode": "agenda",
+    "title": "Team sync",
+    "durationMinutes": 30,
+    "participants": ["Ana", "Bruno"],
+    "goals": ["Review delivery", "Assign next steps"]
+  },
+  "output": {
+    "mode": "agenda",
+    "title": "Team sync",
+    "topics": [
+      {"title": "Review delivery", "owner": "Ana", "minutes": 15, "goalIndex": 0},
+      {"title": "Assign next steps", "owner": "Bruno", "minutes": 15, "goalIndex": 1}
+    ]
+  },
+  "wantProblemCodes": [],
+  "wantTopicMinutes": 30,
+  "wantHasErrors": false
+}

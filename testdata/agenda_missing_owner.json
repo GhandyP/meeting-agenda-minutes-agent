@@ -1,0 +1,21 @@
+{
+  "name": "agenda_missing_owner",
+  "spec": "S4, S8",
+  "input": {
+    "meetingId": "risk-review-2026-10-20",
+    "mode": "agenda",
+    "title": "Risk review",
+    "durationMinutes": 30,
+    "goals": ["Review launch risks"]
+  },
+  "output": {
+    "mode": "agenda",
+    "title": "Risk review",
+    "topics": [
+      {"title": "Review launch risks", "owner": "unknown", "minutes": 30, "goalIndex": 0}
+    ]
+  },
+  "wantProblemCodes": ["owner_needs_confirmation"],
+  "wantTopicMinutes": 30,
+  "wantHasErrors": false
+}
