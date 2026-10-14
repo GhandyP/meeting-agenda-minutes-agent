@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting agenda and minutes — dry run</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <h1>Meeting agenda and minutes</h1>
+    <p class="tagline">A Google ADK (Go) agent turns goals into a time-boxed agenda, or a transcript into evidence-backed minutes.</p>
+    <p class="banner" role="note">
+      <strong>Dry run.</strong> Nothing is published and no invitation is sent. Deterministic rules validate every time box, owner, date and citation before a human approves the exact proposal, and the artifacts are written to this machine only. The generation call itself goes to the configured model provider.
+    </p>
+  </header>
+
+  <main>
+    <form id="plan-form" autocomplete="off">
+      <fieldset>
+        <legend>Meeting</legend>
+        <div class="field">
+          <label for="meeting-id">Meeting id</label>
+          <input id="meeting-id" name="meetingId" value="weekly-sync" required>
+        </div>
+        <div class="field">
+          <label for="title">Title</label>
+          <input id="title" name="title" value="Weekly sync">
+        </div>
+        <div class="field">
+          <label for="mode">Mode</label>
+          <select id="mode" name="mode">
+            <option value="agenda">Agenda — time-boxed topics for a meeting that has not happened</option>
+            <option value="minutes">Minutes — evidence-cited record of a meeting that did</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="duration">Requested duration in minutes (agenda)</label>
+          <input id="duration" name="duration" type="number" min="1" value="60">
+        </div>
+        <div class="field">
+          <label for="participants">Participants, one per line</label>
+          <textarea id="participants" name="participants" rows="2">Ana
+Bruno</textarea>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Source text</legend>
+        <div class="field">
+          <label for="goals">Goals, one per line (agenda)</label>
+          <textarea id="goals" name="goals" rows="3">Ship the release on Friday
+Agree who owns the delivery checklist</textarea>
+        </div>
+        <div class="field">
+          <label for="transcript">Transcript, one segment per line as <code>id | speaker | timestamp | text</code> (minutes)</label>
+          <textarea id="transcript" name="transcript" rows="4">s1 | Ana | 00:00:10 | We will ship the release on Friday.
+s2 | Bruno | 00:01:20 | I will update the delivery checklist.
+s3 | Ana | 00:02:30 | Do we need another review before release?</textarea>
+        </div>
+      </fieldset>
+
+      <div class="controls">
+        <button type="submit" id="generate">Generate proposal</button>
+      </div>
+    </form>
+
+    <section id="status" class="status" role="status" aria-live="polite"></section>
+
+    <section id="report" class="card" hidden>
+      <h2>Deterministic report</h2>
+      <p class="hint" id="report-summary"></p>
+      <div id="problems"></div>
+    </section>
+
+    <section id="result" class="card" hidden>
+      <h2>Proposal</h2>
+      <p class="hint" id="proposal-state"></p>
+      <pre id="proposal"></pre>
+      <div class="controls">
+        <label class="check" id="confirm-row" hidden>
+          <input type="checkbox" id="confirm">
+          I confirmed the owners and deadlines this proposal reports
+        </label>
+        <button type="button" id="approve">Approve</button>
+        <button type="button" id="reject">Reject</button>
+        <button type="button" id="artifacts">Write dry-run artifacts</button>
+      </div>
+      <div id="paths"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Local dry-run tool. No authentication: keep it bound to loopback.</p>
+  </footer>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
