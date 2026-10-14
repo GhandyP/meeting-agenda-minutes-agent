@@ -1,0 +1,11 @@
+{
+  "meetingId": "weekly-sync-2026-10-20",
+  "mode": "agenda",
+  "title": "Weekly sync",
+  "durationMinutes": 60,
+  "participants": ["Ana", "Bruno"],
+  "goals": [
+    "Ship the release on Friday",
+    "Agree who owns the delivery checklist"
+  ]
+}

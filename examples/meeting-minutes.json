@@ -1,0 +1,11 @@
+{
+  "meetingId": "design-review-2026-10-18",
+  "mode": "minutes",
+  "title": "Design review",
+  "participants": ["Ana", "Bruno"],
+  "transcript": [
+    {"id": "s1", "speaker": "Ana", "timestamp": "00:00:10", "text": "We will ship the release on Friday."},
+    {"id": "s2", "speaker": "Bruno", "timestamp": "00:01:20", "text": "I will update the delivery checklist."},
+    {"id": "s3", "speaker": "Ana", "timestamp": "00:02:30", "text": "Do we need another review before release?"}
+  ]
+}

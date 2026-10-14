@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Format, vet, build, race test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: |
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            echo "unformatted Go files:"
+            echo "$files"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test with the race detector
+        run: go test ./... -count=1 -race
+        env:
+          GOOGLE_API_KEY: ""
+
+      - name: Show the live Gemini test state
+        run: go test ./internal/agent/... -run TestGenerateLiveGemini -count=1 -v | tail -4
+        env:
+          GOOGLE_API_KEY: ""
+
+  container:
+    name: Container image
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Build the image
+        run: docker build -t meeting-agenda-minutes-agent:ci .
+
+      - name: Keyless smoke checks
+        run: |
+          docker run --rm meeting-agenda-minutes-agent:ci -h
+          docker run --rm meeting-agenda-minutes-agent:ci run -dry-run=false || test $? -eq 2

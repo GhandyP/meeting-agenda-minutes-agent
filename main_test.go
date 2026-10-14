@@ -309,3 +309,29 @@ func TestUsageMentionsEverySubcommandFlag(t *testing.T) {
 		t.Error("usage does not document the validation exit code")
 	}
 }
+
+// The example inputs the README documents have to keep loading into the
+// contract, or the quickstart would rot silently.
+func TestExampleInputsLoadIntoTheContract(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("examples", "*.json"))
+	if err != nil {
+		t.Fatalf("glob examples: %v", err)
+	}
+	if len(paths) == 0 {
+		t.Fatal("examples/ holds no input file, but the README documents them")
+	}
+
+	for _, path := range paths {
+		input, err := loadInput(path)
+		if err != nil {
+			t.Errorf("loadInput(%s) error = %v", path, err)
+			continue
+		}
+		if strings.TrimSpace(input.MeetingID) == "" {
+			t.Errorf("%s carries no meeting id", path)
+		}
+		if input.Mode != meeting.AgendaMode && input.Mode != meeting.MinutesMode {
+			t.Errorf("%s carries mode %q, want agenda or minutes", path, input.Mode)
+		}
+	}
+}
