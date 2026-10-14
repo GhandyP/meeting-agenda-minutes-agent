@@ -42,12 +42,12 @@ Non-goals (v1, from S5/S10/S13): no audio or STT adapter, no Google Calendar OAu
 
 | ID | Task | Specs | Route | Commit |
 | --- | --- | --- | --- | --- |
-| T1 | Bootstrap: isolated `git init -b main`, MIT LICENSE, .gitignore, public GitHub repo, push | S11, S12 | inline | — |
-| T2 | Own Go module `github.com/GhandyP/meeting-agenda-minutes-agent` on ADK Go v2.6.0 + genai; drop the unbuildable `internal/adkhelper` prototype import | S11, S12 | inline | — |
-| T3 | Contract + deterministic validation (`internal/meeting`): input/output types, duration totals, mode-field exclusivity, unknown owner/date rules, transcript evidence | S2, S6, S7 | inline | — |
-| T4 | Fixtures and edge cases (`testdata/`, loader): duration overflow, repeated topics, missing owners, missing timestamps, empty transcript, agenda vs minutes selection | S4, S8 | inline | — |
-| T5 | Approval gate + dry-run adapters (`internal/approval`, `internal/calendar`, `internal/minutes`): proposal hash, approve/reject, ICS + minutes artifacts, refusal without a matching approval | S5, S9, S13 | inline | — |
-| T6 | ADK layer (`internal/agent`): agenda and minutes `llmagent` branches with `OutputSchema`, deterministic Go mode router, meeting session; fake `model.LLM` so tests run without a key | S3, S7 | inline | — |
+| T1 | Bootstrap: isolated `git init -b main`, MIT LICENSE, .gitignore, public GitHub repo, push | S11, S12 | inline | af0ea17 |
+| T2 | Own Go module `github.com/GhandyP/meeting-agenda-minutes-agent` on ADK Go v2.6.0 + genai; drop the unbuildable `internal/adkhelper` prototype import | S11, S12 | inline | 4d33476 |
+| T3 | Contract + deterministic validation (`internal/meeting`): input/output types, duration totals, mode-field exclusivity, unknown owner/date rules, transcript evidence | S2, S6, S7 | inline | 4aae188 |
+| T4 | Fixtures and edge cases (`testdata/`, loader): duration overflow, repeated topics, missing owners, missing timestamps, empty transcript, agenda vs minutes selection | S4, S8 | worker | — |
+| T5 | Approval gate + dry-run adapters (`internal/approval`, `internal/calendar`, `internal/minutes`): proposal hash, approve/reject, ICS + minutes artifacts, refusal without a matching approval | S5, S9, S13 | worker | — |
+| T6 | ADK layer (`internal/agent`): agenda and minutes `llmagent` branches with `OutputSchema`, deterministic Go mode router, meeting session; fake `model.LLM` so tests run without a key | S3, S7 | worker | — |
 | T7 | Web app (`internal/server`, `web/`): JSON API, SSE progress, embedded UI, approval endpoint | S11, S12 | inline | — |
 | T8 | Entrypoint (`main.go`): `serve` and headless `run` (`-input`, `-mode`, `-duration`, `-addr`, `-dry-run`, `-out`), help text | S10, S12 | inline | — |
 | T9 | Delivery scaffolding: Makefile, Dockerfile, .dockerignore, CHANGELOG | S11 | inline | — |
@@ -86,3 +86,102 @@ L9 — routing constraint (inherited incident, `adk-meeting-summary` L8/L19, rep
 L10 — remote-credential decision (from S12 `Sí: público, MIT, directo a main`): `gh repo create GhandyP/meeting-agenda-minutes-agent --public --source=. --remote=origin --push` after a local `git init -b main` with the MIT LICENSE. No force pushes; each task is one work-unit commit pushed to `main`, and the `Commit` column is filled in when the next work unit lands (as in `adk-meeting-summary`).
 
 L11 — open item: the live Gemini round trip needs `GOOGLE_API_KEY`, which is not present in this environment. Until the user provides it, the ADK wiring is compiled, vetted and exercised only through the fake `model.LLM`; the live test is reported as skipped, never as passing.
+
+L12 — seam freeze (2026-10-14), binding for T4–T8. Every task implements these signatures exactly; a task that needs a different seam stops and reports instead of inventing one. `internal/meeting` (T3, already implemented) is the only shared type source: `Validate(in MeetingPlanInput, out AgendaOrMinutes) Report` plus the `Code*`/`Severity*` constants. `internal/approval` must not import `internal/agent`, and `internal/calendar`/`internal/minutes` may import `internal/approval` and `internal/meeting` only.
+
+```go
+// internal/agent (T6) — no package-level model construction; tests inject model.LLM
+package agent
+
+type Config struct {
+	Model     model.LLM // required
+	ModelName string    // optional label; defaults to Model.Name()
+}
+
+type Generator interface {
+	Generate(ctx context.Context, in meeting.MeetingPlanInput) (meeting.AgendaOrMinutes, error)
+}
+
+func New(cfg Config) (Generator, error)
+
+type GeminiConfig struct {
+	APIKey    string
+	ModelName string // default "gemini-flash-latest"
+}
+
+func NewGeminiModel(ctx context.Context, cfg GeminiConfig) (model.LLM, error)
+```
+
+```go
+// internal/approval (T5)
+package approval
+
+type State string
+
+const (
+	StatePending  State = "pending"
+	StateApproved State = "approved"
+	StateRejected State = "rejected"
+)
+
+type Proposal struct {
+	ID          string                 `json:"id"`
+	MeetingID   string                 `json:"meetingId"`
+	Mode        meeting.Mode           `json:"mode"`
+	PayloadHash string                 `json:"payloadHash"`
+	Payload     meeting.AgendaOrMinutes `json:"payload"`
+	State       State                  `json:"state"`
+	CreatedAt   time.Time              `json:"createdAt"`
+}
+
+var ErrNotFound error    // unknown proposal id
+var ErrNotApproved error  // proposal exists but is not approved
+var ErrHashMismatch error // approval is bound to a different payload
+
+func Hash(p meeting.AgendaOrMinutes) (string, error) // canonical JSON of p, sha256, lowercase hex
+
+type Gate interface {
+	Propose(p meeting.AgendaOrMinutes) (Proposal, error)
+	Approve(id string) (Proposal, error)
+	Reject(id string) (Proposal, error)
+	Get(id string) (Proposal, error)
+	Authorize(id string, p meeting.AgendaOrMinutes) error // nil only when approved AND hash(p) matches the bound hash
+}
+
+func NewGate() Gate // in-memory, concurrency-safe
+```
+
+```go
+// internal/calendar (T5) — deterministic text, never a network call
+package calendar
+
+func ICS(p meeting.AgendaOrMinutes) ([]byte, error)
+func WriteDryRun(dir string, g approval.Gate, token string, p meeting.AgendaOrMinutes) (string, error)
+```
+
+```go
+// internal/minutes (T5) — deterministic text, never a publish call
+package minutes
+
+func Document(p meeting.AgendaOrMinutes) ([]byte, error)
+func WriteDryRun(dir string, g approval.Gate, token string, p meeting.AgendaOrMinutes) (string, error)
+```
+
+`calendar.WriteDryRun` and `minutes.WriteDryRun` call `g.Authorize(token, p)` first and return that error unchanged when it is non-nil: no file is created without an approval bound to that exact payload. Both return the written path.
+
+```go
+// internal/meeting fixtures (T4)
+package meeting
+
+type Case struct {
+	Name             string           `json:"name"`
+	Spec             string           `json:"spec"`
+	Input            MeetingPlanInput `json:"input"`
+	Output           AgendaOrMinutes  `json:"output"`
+	WantProblemCodes []string         `json:"wantProblemCodes"`
+}
+
+func LoadCases(dir string) ([]Case, error) // *.json in dir, filename order
+```
+
+L13 — session evidence (2026-10-14): `gh repo view GhandyP/meeting-agenda-minutes-agent` reports `PUBLIC`, default branch `main`; the local `main` was one commit ahead of `origin/main` with `internal/` untracked, so T3 existed on disk but uncommitted. `go build ./...`, `go vet ./...` and `go test ./... -count=1` reported `ok internal/meeting`; `gofmt -l` flagged `internal/meeting/validate_test.go`, which was formatted before the T3 commit `4aae188`. Local Pi tool state (`.codegraph/`) was added to `.gitignore` so the public repository carries no machine-local artifacts. `GOOGLE_API_KEY` is absent, so L11 stands; T2 (`4d33476`) and T3 (`4aae188`) were pushed to `origin/main`.
