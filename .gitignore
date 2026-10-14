@@ -1,5 +1,6 @@
 # Local Pi runtime state (not part of the project)
 .atl/
+.codegraph/
 
 # Build output
 /dist/
