@@ -1,0 +1,17 @@
+# Local Pi runtime state (not part of the project)
+.atl/
+
+# Build output
+/dist/
+/bin/
+*.test
+/meeting-agenda-minutes-agent
+
+# Local secrets
+.env
+
+# Dry-run output: generated calendar files and minutes, never committed
+/out/
+
+# Editor and OS files
+.DS_Store
