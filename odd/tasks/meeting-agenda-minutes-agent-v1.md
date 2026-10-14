@@ -219,3 +219,67 @@ Required HTTP behavior, each point covered by a `httptest` case with a fake gene
 T8 command contract (`main.go`): `serve` and `run` subcommands. `serve -addr -out` starts the HTTP server; `run -input -mode -duration -out` is headless: it reads a `meeting.MeetingPlanInput` JSON file, generates, validates, prints the report as JSON to stdout and stops at the proposal, printing its id and stating that the dry-run artifacts require the approval step. `-dry-run` defaults to true and `-dry-run=false` is refused with a clear error and no side effect, because v1 never leaves dry run. Exit codes: 0 success, 1 operational error, 2 usage error, 3 the report has errors. Missing `GOOGLE_API_KEY` is an operational error with a message naming the variable; `-h`/`--help` documents both subcommands and every flag.
 
 L15 — routing decision (2026-10-14): T4, T5 and T6 were delegated to three `gentle-ai-worker` tasks in one batch on disjoint edit surfaces (`testdata/**` + `internal/meeting/fixtures*`; `internal/approval/**`, `internal/calendar/**`, `internal/minutes/**`; `internal/agent/**`), with L12 as the binding seam and an explicit ban on `go mod tidy`, on full-module builds (other packages are mid-flight), and on git write commands. T9/T10 land only after T8, so the public `main` never carries a CI or Docker job that references a binary that does not exist yet.
+
+L16 — seam correction (2026-10-14), supersedes the `internal/approval`, `internal/calendar` and `internal/minutes` blocks of L12. The T5 worker stopped before editing because those signatures could not express the required behavior: `calendar.ICS(AgendaOrMinutes)` has no requested duration — `AgendaOrMinutes` carries only the time boxes, and summing them is not the requested duration (the fixture family requests 60 minutes and boxes 55) — and `minutes.Document(AgendaOrMinutes)` has only transcript segment ids, not the transcript text, so it could not retain the evidence S4/S8 require. Both facts live in `MeetingPlanInput`.
+
+The approval therefore binds the request-response pair rather than the response alone: a human approves "this request produced this proposal", and changing the request invalidates the approval. No task needed edit surfaces beyond `internal/approval`, `internal/calendar` and `internal/minutes`: `internal/meeting` is a read-only dependency.
+
+```go
+// internal/approval (T5, supersedes L12)
+package approval
+
+type State string
+
+const (
+	StatePending  State = "pending"
+	StateApproved State = "approved"
+	StateRejected State = "rejected"
+)
+
+type Proposal struct {
+	ID          string                        `json:"id"`
+	MeetingID   string                        `json:"meetingId"`
+	Mode        meeting.Mode                  `json:"mode"`
+	Input       meeting.MeetingPlanInput      `json:"input"`
+	Output      meeting.AgendaOrMinutes       `json:"output"`
+	PayloadHash string                        `json:"payloadHash"`
+	State       State                         `json:"state"`
+	CreatedAt   time.Time                     `json:"createdAt"`
+}
+
+var ErrNotFound error       // unknown proposal id
+var ErrNotApproved error     // proposal exists but is not approved
+var ErrHashMismatch error    // approval is bound to a different request-response pair
+var ErrAlreadyDecided error  // approve or reject on a decided proposal
+var ErrModeMismatch error    // input mode is unknown or output mode differs from it
+
+func Hash(in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) (string, error) // canonical JSON of the pair, sha256, lowercase hex
+
+type Gate interface {
+	Propose(in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) (Proposal, error)
+	Approve(id string) (Proposal, error)
+	Reject(id string) (Proposal, error)
+	Get(id string) (Proposal, error)
+	Authorize(id string, in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) error
+}
+
+func NewGate() Gate // in-memory, safe for concurrent use
+```
+
+```go
+// internal/calendar (T5, supersedes L12) — deterministic text, never a network call
+package calendar
+
+func ICS(in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) ([]byte, error)
+func WriteDryRun(dir string, g approval.Gate, token string, in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) (string, error)
+
+// internal/minutes (T5, supersedes L12) — deterministic text, never a publish call
+package minutes
+
+func Document(in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) ([]byte, error)
+func WriteDryRun(dir string, g approval.Gate, token string, in meeting.MeetingPlanInput, out meeting.AgendaOrMinutes) (string, error)
+```
+
+T5 behavior additions, all testable: `Propose` generates a stable hex `ID` from `crypto/rand`, mirrors `in.MeetingID` into `MeetingID` and `in.Mode` into `Mode`, and returns `ErrModeMismatch` when `in.Mode` is neither agenda nor minutes or `out.Mode` differs from it. `calendar.ICS` takes `DURATION:PT<N>M` from `in.DurationMinutes`, `SUMMARY` from `out.Title` falling back to `in.Title`, and the time boxes from `out.Topics`; it errors when the mode is not agenda, when the duration is not positive, or when there is no topic. `minutes.Document` resolves every evidence id against `in.Transcript` and renders the segment speaker, its timestamp when the supplied string is non-empty, and the segment text as the retained quote; an evidence id that is not a segment of `in.Transcript` is an error naming that id, because a publication must never invent evidence.
+
+L17 — L14 clarification (2026-10-14): the `POST /api/v1/proposals/{id}/artifacts` route takes no request body. It renders from the stored proposal's own `Input` and `Output`, so a caller can never supply bytes that differ from what the human approved.
